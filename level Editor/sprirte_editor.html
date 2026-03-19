@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Odyssey 2026 - Sprite Editor Pro</title>
+    <style>
+        body {
+            background-color: #111; color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex; flex-direction: column; align-items: center; padding: 20px;
+            user-select: none; 
+        }
+        h1 { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; margin-bottom: 5px;}
+        .toolbar {
+            background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444;
+            display: flex; gap: 15px; margin-bottom: 20px; align-items: center;
+        }
+        button {
+            background: #444; color: #fff; border: 1px solid #777;
+            padding: 8px 15px; cursor: pointer; font-weight: bold; border-radius: 4px; font-family: inherit;
+        }
+        button:hover { background: #666; color: #0f0; }
+        
+        .import-btn { background: #0055aa; color: #fff; }
+        .import-btn:hover { background: #0077ff; color: #fff; }
+        
+        .export-btn { background: #880088; color: #fff; }
+        .export-btn:hover { background: #aa00aa; color: #fff;}
+
+        #toggle-mode-btn { background: #aa5500; color: #fff; }
+        #toggle-mode-btn:hover { filter: brightness(1.2); }
+        
+        /* Layout Editor con Righelli */
+        .editor-container {
+            display: flex; gap: 5px; align-items: flex-start;
+        }
+        .grid-column {
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        
+        /* Righelli Numerati */
+        .ruler-x {
+            display: grid; grid-template-columns: repeat(24, 15px); gap: 1px;
+            padding-left: 2px;
+        }
+        .ruler-y {
+            display: grid; grid-template-rows: repeat(21, 15px); gap: 1px;
+            padding-top: 2px; padding-left: 5px;
+        }
+        .ruler-num {
+            width: 15px; height: 15px; font-size: 9px; color: #888;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* C64 Sprite Grid (24x21) */
+        #sprite-grid {
+            display: grid;
+            grid-template-columns: repeat(24, 15px);
+            grid-template-rows: repeat(21, 15px);
+            gap: 1px; background-color: #333; border: 2px solid #555;
+        }
+        .pixel { width: 15px; height: 15px; background-color: #000; cursor: crosshair; }
+        .pixel:hover { background-color: #555; outline: 1px solid #fff; z-index: 10; }
+        .pixel.active { background-color: #fff; box-shadow: 0 0 5px #fff; }
+        
+        textarea {
+            margin-top: 20px; width: 600px; height: 250px; background: #000; color: #0f0;
+            border: 1px solid #555; padding: 10px; font-family: inherit; resize: vertical;
+        }
+        .info { color: #aaa; font-size: 12px; margin-top: 10px; text-align: center; }
+        .controls-info { color: #0ff; font-size: 14px; margin-bottom: 15px; font-weight: bold; text-align: center; }
+        .controls-info span { color: #fff; background: #333; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <h1>ODYSSEY 2026 - C64 SPRITE EDITOR</h1>
+    <div class="controls-info" id="mouse-info">
+        🖱️ Tasto Sinistro: <span>CANCELLA (Nero)</span> | Tasto Destro: <span>DISEGNA (Bianco)</span>
+    </div>
+
+    <div class="toolbar">
+        <button onclick="clearSprite()">Cancella Tutto</button>
+        <button onclick="drawDefaultBumper()">Bumper Base</button>
+        <button id="toggle-mode-btn" onclick="toggleDrawMode()">🖌️ MODO: SCALPELLO</button>
+        <div style="border-left: 1px solid #555; height: 30px; margin: 0 5px;"></div>
+        <button class="import-btn" onclick="importSprite()">⬇️ IMPORTA DA TESTO</button>
+        <button class="export-btn" onclick="exportSprite()">⬆️ ESPORTA ASSEMBLY</button>
+    </div>
+
+    <div class="editor-container">
+        <div class="grid-column">
+            <div class="ruler-x" id="ruler-x"></div>
+            <div id="sprite-grid" oncontextmenu="return false;"></div> 
+        </div>
+        <div class="ruler-y" id="ruler-y"></div>
+    </div>
+
+    <div class="info">I file sprite del C64 sono composti da 63 byte di dati + 1 byte di padding (Totale 64 byte).</div>
+
+    <textarea id="output" placeholder="Incolla qui il codice !byte (es. !byte $FF, $00...) e premi IMPORTA, oppure disegna e premi ESPORTA."></textarea>
+
+    <script>
+        const width = 24;
+        const height = 21;
+        const grid = document.getElementById('sprite-grid');
+        let pixels = new Array(width * height).fill(0);
+        let isDrawing = false;
+        let drawMode = 1; 
+        let leftDraws = false; // Inizia in modalità Scalpello (Sinistro = Cancella)
+
+        // Genera i numeri dei righelli
+        const rx = document.getElementById('ruler-x');
+        for(let i=0; i<24; i++) rx.innerHTML += `<div class="ruler-num">${i}</div>`;
+        const ry = document.getElementById('ruler-y');
+        for(let i=0; i<21; i++) ry.innerHTML += `<div class="ruler-num">${i}</div>`;
+
+        // Funzione per invertire la modalità mouse
+        function toggleDrawMode() {
+            leftDraws = !leftDraws;
+            const btn = document.getElementById('toggle-mode-btn');
+            const info = document.getElementById('mouse-info');
+            
+            if (leftDraws) {
+                btn.innerText = "🖌️ MODO: DISEGNO";
+                btn.style.background = "#008800";
+                info.innerHTML = "🖱️ Tasto Sinistro: <span>DISEGNA (Bianco)</span> | Tasto Destro: <span>CANCELLA (Nero)</span>";
+            } else {
+                btn.innerText = "🖌️ MODO: SCALPELLO";
+                btn.style.background = "#aa5500";
+                info.innerHTML = "🖱️ Tasto Sinistro: <span>CANCELLA (Nero)</span> | Tasto Destro: <span>DISEGNA (Bianco)</span>";
+            }
+        }
+
+        // Inizializza la griglia
+        for (let i = 0; i < width * height; i++) {
+            const px = document.createElement('div');
+            px.className = 'pixel';
+            px.dataset.index = i;
+            
+            // Mouse Giù
+            px.onmousedown = (e) => {
+                isDrawing = true;
+                if (e.button === 0) drawMode = leftDraws ? 1 : 0;      // Tasto Sinistro
+                else if (e.button === 2) drawMode = leftDraws ? 0 : 1; // Tasto Destro
+                togglePixel(i, px, true);
+            };
+            
+            // Mouse Entra (Trascinamento)
+            px.onmouseenter = (e) => {
+                if (isDrawing) {
+                    if (e.buttons === 1) drawMode = leftDraws ? 1 : 0;      // Trascina Sinistro
+                    else if (e.buttons === 2) drawMode = leftDraws ? 0 : 1; // Trascina Destro
+                    togglePixel(i, px, true);
+                }
+            };
+            
+            grid.appendChild(px);
+        }
+
+        // Blocca il drag fuori dalla finestra
+        document.body.onmouseup = () => isDrawing = false;
+        document.body.onmouseleave = () => isDrawing = false;
+
+        function togglePixel(index, element, forceMode = false) {
+            pixels[index] = drawMode;
+            element.classList.toggle('active', pixels[index] === 1);
+        }
+
+        function clearSprite(clearText = true) {
+            pixels.fill(0);
+            document.querySelectorAll('.pixel').forEach(p => p.classList.remove('active'));
+            if(clearText) document.getElementById('output').value = '';
+        }
+
+        // Funzione per disegnare un Bumper standard (Largo 24, Alto 8)
+        function drawDefaultBumper() {
+            clearSprite(true);
+            for(let r = 0; r < 8; r++) {
+                for(let x = 0; x < 24; x++) {
+                    let idx = (r * width) + x;
+                    pixels[idx] = 1;
+                    document.querySelector(`.pixel[data-index="${idx}"]`).classList.add('active');
+                }
+            }
+        }
+
+        // ESPORTA in Assembly
+        function exportSprite() {
+            let asm = `; --- SPRITE ESPORTATO (24x21) ---\n`;
+            let bytes = [];
+
+            for (let r = 0; r < height; r++) {
+                let rowAscii = "; ";
+                for (let b = 0; b < 3; b++) {
+                    let byteVal = 0;
+                    for (let bit = 0; bit < 8; bit++) {
+                        let pxVal = pixels[(r * width) + (b * 8) + bit];
+                        if (pxVal) {
+                            byteVal |= (1 << (7 - bit));
+                            rowAscii += "X"; 
+                        } else {
+                            rowAscii += ".";
+                        }
+                    }
+                    bytes.push(byteVal);
+                }
+                asm += `${rowAscii}\n`; 
+            }
+            
+            bytes.push(0); // Padding byte
+
+            asm += `SPRITE_DATA:\n`;
+            for (let i = 0; i < bytes.length; i += 8) {
+                let chunk = bytes.slice(i, i + 8).map(b => '$' + b.toString(16).padStart(2, '0').toUpperCase());
+                asm += `    !byte ${chunk.join(",")}\n`;
+            }
+
+            document.getElementById('output').value = asm;
+        }
+
+        // IMPORTA da Assembly
+        function importSprite() {
+            const text = document.getElementById('output').value;
+            const regex = /\$([0-9A-Fa-f]{2})/g;
+            const matches = [...text.matchAll(regex)];
+
+            if (matches.length < 63) {
+                alert("Errore: Trovati solo " + matches.length + " byte validi. Un file Sprite C64 richiede almeno 63 byte esadecimali (es. $FF).");
+                return;
+            }
+
+            clearSprite(false); 
+
+            let pixelIndex = 0;
+            for (let i = 0; i < 63; i++) {
+                let byteVal = parseInt(matches[i][1], 16);
+                
+                for (let bit = 0; bit < 8; bit++) {
+                    let isSet = (byteVal & (1 << (7 - bit))) !== 0;
+                    if (isSet) {
+                        pixels[pixelIndex] = 1;
+                        document.querySelector(`.pixel[data-index="${pixelIndex}"]`).classList.add('active');
+                    }
+                    pixelIndex++;
+                }
+            }
+        }
+    </script>
+</body>
+</html>

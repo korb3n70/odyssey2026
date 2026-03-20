@@ -2,9 +2,15 @@
   ODYSSEY 2026 - Commodore 64
   Autore: Massimo Bonono
   Assembler: ACME
+  Documento : primo Draft architettura cambiato in corso d'opera , indirrizzi dei giochi cambiati
+  riferimento reale in Main.asm  Paddle_read Input_asm descrivono in grandi linee come sono gestite le 
+  perifieriche ma in corso d'opera l'input non e' piu' stato gestito dal Kernel ma brutalmente leggendo dalla tastiera . 
+  anche il basic e' stato sovrascritto serviva memoria , la colonna sonora e' stata tagliata ed e' inedita si tratta di una conversione
+  fatta da un file midi con un beat italiano che a me piace molto  e convertita tramite tool in sng e poi in codice ASM e quindi sid . il sid file e' completo il bin si ferma al minuto 2:30 avrei voluto migliorare la qualita' della conversione perche' e' migliorabile e ne sono certo ma non ho gli strumenti e ne le competenze per farlo . 
+  sembra un gioco stupido ma dietro ci sono almeno 500 rebuild ed ore di debugging di cui faro' tesoro per la prossima avventura . 
 ================================================
 
-STRUTTURA PROGETTO
+STRUTTURA PROGETTO INIZIALE GRANDI LINEE SEGUE L'ARCHITETTURA ATTUALE.
 ------------------
 odyssey2026\
   main.asm              Entry point + costanti globali

@@ -11,6 +11,7 @@
 
 **Odyssey 2026** non è un semplice porting, ma una ricostruzione da zero, potenziata e modernizzata, dei classici giochi della console del 1978. Sviluppato interamente in puro **Assembly 6502 (Bare Metal)**, il progetto spreme al massimo l'hardware del C64 offrendo un'esperienza di gioco fluida, reattiva e fisicamente avanzata.
 
+[watch on youtube](https://youtu.be/Ya9MNjs8rn0)
 ---
 
 ##  Caratteristiche Principali
